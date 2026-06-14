@@ -4,10 +4,12 @@ node_modules/
 # Environment variables
 .env
 .env.*
+!.env.standalone
 
 # Build output
 dist/
 dist-ssr/
+dist-standalone/
 
 # Database
 *.db

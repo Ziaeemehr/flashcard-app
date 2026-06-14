@@ -27,6 +27,16 @@ if [ -n "$LAN_IP" ]; then
   echo ""
   echo "On your phone (same Wi-Fi), open: http://$LAN_IP:5173"
   echo "(If macOS asks to allow incoming connections for node, click Allow.)"
+
+  if [ -d "$SCRIPT_DIR/frontend/dist-standalone" ]; then
+    echo ""
+    echo "Standalone offline app (install once, then works without this server):"
+    echo "  http://$LAN_IP:3001/standalone"
+  else
+    echo ""
+    echo "Tip: run 'npm run build:standalone' in frontend/ to enable an installable"
+    echo "offline app at http://$LAN_IP:3001/standalone"
+  fi
 fi
 
 # Kill everything in this script's process group (covers npm's child

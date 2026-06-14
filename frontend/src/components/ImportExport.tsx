@@ -31,6 +31,8 @@ function extensionToFormat(filename: string): ImportExportFormat | null {
   return null;
 }
 
+const isLocalMode = import.meta.env.VITE_DATA_MODE === "local";
+
 export function ImportExport({ decks, currentDeckId, onImported }: ImportExportProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ankiFileInputRef = useRef<HTMLInputElement>(null);
@@ -150,21 +152,25 @@ export function ImportExport({ decks, currentDeckId, onImported }: ImportExportP
           className="hidden"
           onChange={handleFileChange}
         />
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={importing}
-          onClick={() => ankiFileInputRef.current?.click()}
-        >
-          Import Anki (.apkg)…
-        </Button>
-        <input
-          ref={ankiFileInputRef}
-          type="file"
-          accept=".apkg"
-          className="hidden"
-          onChange={handleAnkiFileChange}
-        />
+        {!isLocalMode && (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={importing}
+              onClick={() => ankiFileInputRef.current?.click()}
+            >
+              Import Anki (.apkg)…
+            </Button>
+            <input
+              ref={ankiFileInputRef}
+              type="file"
+              accept=".apkg"
+              className="hidden"
+              onChange={handleAnkiFileChange}
+            />
+          </>
+        )}
         <BulkAddForm decks={decks} defaultDeckId={currentDeckId} onImported={onImported} />
       </div>
       <div className="flex flex-wrap items-center gap-2">

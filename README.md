@@ -77,6 +77,32 @@ Open `http://localhost:5173` in your browser.
 `run.sh` prints a LAN URL (e.g. `http://<your-ip>:5173`) that you can open on
 a phone connected to the same Wi-Fi network.
 
+### Standalone offline app (Android/iOS, no laptop required)
+
+For phone use without the laptop running, build the standalone PWA, which
+stores all data locally in the browser (IndexedDB) instead of calling the
+backend:
+
+```bash
+cd frontend
+npm run build:standalone
+```
+
+With the backend running (`./run.sh`), open `http://<your-ip>:3001/standalone`
+on your phone (same Wi-Fi), then "Add to Home Screen" (Chrome menu on Android,
+Share menu on iOS Safari). After that one-time install, the app works fully
+offline — including review sessions and the SM-2 algorithm.
+
+Notes:
+
+- The standalone app has its own separate data store. Use **Settings → Backup**
+  to export a JSON backup from one copy and **restore** it into the other to
+  sync data between your laptop and phone "every now and then".
+- Anki `.apkg` import isn't available in standalone mode (it requires the
+  backend); use CSV/JSON/Anki-TSV import instead.
+- Dictionary lookups in standalone mode call Wiktionary/Tatoeba directly from
+  the browser and may not work without an internet connection.
+
 ## Project Structure
 
 ```

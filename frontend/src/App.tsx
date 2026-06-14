@@ -15,12 +15,19 @@ import type { Deck, Flashcard, NewFlashcard, SortOption } from "@/types";
 
 type Mode = "browse" | "review" | "explore";
 
+const MODE_STORAGE_KEY = "flashcard-app-mode";
+const DECK_STORAGE_KEY = "flashcard-app-deck";
+
 function App() {
-  const [mode, setMode] = useState<Mode>("browse");
+  const [mode, setMode] = useState<Mode>(
+    () => (localStorage.getItem(MODE_STORAGE_KEY) as Mode | null) ?? "browse",
+  );
   const [statsVersion, setStatsVersion] = useState(0);
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [decks, setDecks] = useState<Deck[]>([]);
-  const [selectedDeck, setSelectedDeck] = useState<string>(ALL_DECKS);
+  const [selectedDeck, setSelectedDeck] = useState<string>(
+    () => localStorage.getItem(DECK_STORAGE_KEY) ?? ALL_DECKS,
+  );
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,6 +51,14 @@ function App() {
   useEffect(() => {
     loadDecks();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(MODE_STORAGE_KEY, mode);
+  }, [mode]);
+
+  useEffect(() => {
+    localStorage.setItem(DECK_STORAGE_KEY, selectedDeck);
+  }, [selectedDeck]);
 
   useEffect(() => {
     setLoading(true);
