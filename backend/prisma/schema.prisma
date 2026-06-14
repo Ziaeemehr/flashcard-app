@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model DictionaryEntry {
+  word       String   @id
+  type       String   @default("")
+  definition String   @default("")
+  examples   String   @default("[]") // JSON-encoded string[]
+  fetchedAt  DateTime @default(now())
+}
+
+model Flashcard {
+  id             String   @id @default(uuid())
+  word           String
+  phonetic       String   @default("")
+  type           String   @default("")
+  definition     String   @default("")
+  examples       String   @default("[]") // JSON-encoded string[]
+  audioUrl       String   @default("")
+  createdAt      DateTime @default(now())
+
+  // Spaced repetition (SM-2)
+  easeFactor     Float    @default(2.5)
+  interval       Int      @default(0) // days
+  reviewCount    Int      @default(0)
+  lapses         Int      @default(0)
+  nextReviewDate DateTime @default(now())
+}
