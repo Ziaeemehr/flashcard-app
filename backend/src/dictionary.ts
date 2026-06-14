@@ -36,18 +36,24 @@ async function fetchPhonetic(word: string): Promise<string> {
   }
 }
 
-router.get("/:word", async (req, res) => {
-  const word = req.params.word;
+export interface DictionaryEntry {
+  word: string;
+  type: string;
+  phonetic: string;
+  definition: string;
+  examples: string[];
+}
 
+export async function lookupDictionary(word: string): Promise<DictionaryEntry | null> {
   const cached = await prisma.dictionaryEntry.findUnique({ where: { word } });
   if (cached) {
-    return res.json({
+    return {
       word: cached.word,
       type: cached.type,
       phonetic: cached.phonetic,
       definition: cached.definition,
       examples: JSON.parse(cached.examples) as string[],
-    });
+    };
   }
 
   let upstream: Response;
@@ -56,19 +62,15 @@ router.get("/:word", async (req, res) => {
       `https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(word)}`,
     );
   } catch {
-    return res.status(503).json({ error: "Dictionary service unreachable and no cached entry" });
+    return null;
   }
 
-  if (!upstream.ok) {
-    return res.status(404).json({ error: "No definitions found" });
-  }
+  if (!upstream.ok) return null;
 
   const data = (await upstream.json()) as WiktionaryResponse;
   const frenchSenses = data.fr;
 
-  if (!frenchSenses || frenchSenses.length === 0) {
-    return res.status(404).json({ error: "No French definitions found" });
-  }
+  if (!frenchSenses || frenchSenses.length === 0) return null;
 
   const examples: string[] = [];
   const definitions: string[] = [];
@@ -82,7 +84,7 @@ router.get("/:word", async (req, res) => {
     }
   }
 
-  const entry = {
+  const entry: DictionaryEntry = {
     word,
     type: frenchSenses[0].partOfSpeech.toLowerCase(),
     phonetic: await fetchPhonetic(word),
@@ -94,6 +96,12 @@ router.get("/:word", async (req, res) => {
     data: { ...entry, examples: JSON.stringify(entry.examples) },
   });
 
+  return entry;
+}
+
+router.get("/:word", async (req, res) => {
+  const entry = await lookupDictionary(req.params.word);
+  if (!entry) return res.status(404).json({ error: "No definitions found" });
   res.json(entry);
 });
 

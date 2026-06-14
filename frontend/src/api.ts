@@ -48,6 +48,11 @@ export const flashcardsApi = {
       method: "POST",
       body: JSON.stringify({ format, content, deckId }),
     }),
+  bulkImport: (words: string[], deckId: string | null) =>
+    request<{ created: number; results: { word: string; found: boolean }[] }>(`${API_URL}/bulk-import`, {
+      method: "POST",
+      body: JSON.stringify({ words, deckId }),
+    }),
 };
 
 export const decksApi = {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "./db";
 import { applyReview, type ReviewRating } from "./sm2";
 import { toCsv, toAnkiTsv, parseImport } from "./importExport";
+import { lookupDictionary } from "./dictionary";
 
 const router = Router();
 
@@ -13,6 +14,16 @@ const flashcardInput = z.object({
   definition: z.string().optional().default(""),
   examples: z.array(z.string()).optional().default([]),
   audioUrl: z.string().optional().default(""),
+  deckId: z.string().nullable().optional(),
+});
+
+const flashcardUpdateInput = z.object({
+  word: z.string().min(1).optional(),
+  phonetic: z.string().optional(),
+  type: z.string().optional(),
+  definition: z.string().optional(),
+  examples: z.array(z.string()).optional(),
+  audioUrl: z.string().optional(),
   deckId: z.string().nullable().optional(),
 });
 
@@ -140,6 +151,44 @@ router.post("/import", async (req, res) => {
   res.status(201).json({ imported: cards.length });
 });
 
+const bulkImportInput = z.object({
+  words: z.array(z.string()).min(1).max(300),
+  deckId: z.string().nullable().optional(),
+});
+
+// Strips a leading line number such as "1.", "1)" or "1\t" from a pasted word list line.
+function stripLineNumber(line: string): string {
+  return line.replace(/^\s*\d+[.)]?\s*/, "").trim();
+}
+
+router.post("/bulk-import", async (req, res) => {
+  const parsed = bulkImportInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const results: { word: string; found: boolean }[] = [];
+
+  for (const raw of parsed.data.words) {
+    const word = stripLineNumber(raw);
+    if (!word) continue;
+
+    const entry = await lookupDictionary(word);
+    await prisma.flashcard.create({
+      data: {
+        word,
+        definition: entry?.definition ?? "",
+        phonetic: entry?.phonetic ?? "",
+        type: entry?.type ?? "",
+        examples: JSON.stringify(entry?.examples ?? []),
+        audioUrl: "",
+        deckId: parsed.data.deckId ?? null,
+      },
+    });
+    results.push({ word, found: entry !== null });
+  }
+
+  res.status(201).json({ created: results.length, results });
+});
+
 router.get("/:id", async (req, res) => {
   const card = await prisma.flashcard.findUnique({ where: { id: req.params.id } });
   if (!card) return res.status(404).json({ error: "Not found" });
@@ -158,7 +207,7 @@ router.post("/", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-  const parsed = flashcardInput.partial().safeParse(req.body);
+  const parsed = flashcardUpdateInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   const { examples, ...rest } = parsed.data;

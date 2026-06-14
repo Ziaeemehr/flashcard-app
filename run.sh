@@ -21,6 +21,14 @@ echo "Backend PID: $BACKEND_PID"
 echo "Frontend PID: $FRONTEND_PID"
 echo "Press Ctrl+C to stop both, or run ./stop.sh from another terminal."
 
+# Show the LAN address so the app can be opened from a phone on the same Wi-Fi.
+LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)"
+if [ -n "$LAN_IP" ]; then
+  echo ""
+  echo "On your phone (same Wi-Fi), open: http://$LAN_IP:5173"
+  echo "(If macOS asks to allow incoming connections for node, click Allow.)"
+fi
+
 # Kill everything in this script's process group (covers npm's child
 # processes like tsx/vite too) on Ctrl+C, termination, or normal exit.
 cleanup() {

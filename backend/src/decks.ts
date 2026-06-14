@@ -26,9 +26,13 @@ router.post("/", async (req, res) => {
   const parsed = deckInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
+  const parentId = parsed.data.parentId ?? null;
+  const existing = await prisma.deck.findFirst({ where: { name: parsed.data.name, parentId } });
+  if (existing) return res.status(409).json({ error: "A deck with that name already exists at this level" });
+
   try {
     const deck = await prisma.deck.create({
-      data: { name: parsed.data.name, parentId: parsed.data.parentId ?? null },
+      data: { name: parsed.data.name, parentId },
     });
     res.status(201).json({ ...deck, cardCount: 0 });
   } catch {
@@ -41,6 +45,14 @@ const renameInput = z.object({ name: z.string().min(1) });
 router.put("/:id", async (req, res) => {
   const parsed = renameInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const current = await prisma.deck.findUnique({ where: { id: req.params.id } });
+  if (!current) return res.status(404).json({ error: "Not found" });
+
+  const existing = await prisma.deck.findFirst({
+    where: { name: parsed.data.name, parentId: current.parentId, id: { not: req.params.id } },
+  });
+  if (existing) return res.status(409).json({ error: "A deck with that name already exists at this level" });
 
   try {
     const deck = await prisma.deck.update({
