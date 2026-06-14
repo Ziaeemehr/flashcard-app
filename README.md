@@ -4,6 +4,14 @@ A browser-based flashcard app for learning French vocabulary, with automatic
 dictionary lookups, spaced-repetition review (SM-2), text-to-speech, deck
 organization, and Anki import/export.
 
+<table>
+  <tr>
+    <td><img src="docs/dashboard.jpg" alt="Dashboard and deck panel" width="260" /></td>
+    <td><img src="docs/review-card.jpg" alt="Review mode flashcard" width="260" /></td>
+    <td><img src="docs/review-card-back.jpg" alt="Flashcard back with definition and examples" width="260" /></td>
+  </tr>
+</table>
+
 ## Features
 
 - **Flashcards** — word, phonetic transcription, part of speech, definition,
