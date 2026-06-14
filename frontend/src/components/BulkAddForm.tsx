@@ -64,16 +64,16 @@ export function BulkAddForm({ decks, defaultDeckId, onImported }: BulkAddFormPro
 
   if (!open) {
     return (
-      <Button variant="outline" size="sm" className="self-start" onClick={() => setOpen(true)}>
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         Add multiple words…
       </Button>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-xl flex-col gap-2 rounded-xl border bg-card p-4 shadow-sm">
+    <form onSubmit={handleSubmit} className="flex w-full flex-col gap-2 rounded-lg border bg-background/50 p-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">Add multiple words</h2>
+        <h3 className="text-sm font-medium text-muted-foreground">Add multiple words</h3>
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
           Close
         </Button>

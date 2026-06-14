@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BulkAddForm } from "@/components/BulkAddForm";
 import {
   flashcardsApi,
   exportFlashcards,
@@ -30,7 +31,7 @@ function extensionToFormat(filename: string): ImportExportFormat | null {
   return null;
 }
 
-export function ImportExport({ currentDeckId, onImported }: ImportExportProps) {
+export function ImportExport({ decks, currentDeckId, onImported }: ImportExportProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ankiFileInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -164,6 +165,7 @@ export function ImportExport({ currentDeckId, onImported }: ImportExportProps) {
           className="hidden"
           onChange={handleAnkiFileChange}
         />
+        <BulkAddForm decks={decks} defaultDeckId={currentDeckId} onImported={onImported} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={handleBackup}>

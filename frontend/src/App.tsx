@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FlashcardView } from "@/components/FlashcardView";
 import { AddCardForm } from "@/components/AddCardForm";
-import { BulkAddForm } from "@/components/BulkAddForm";
 import { DictionaryPanel } from "@/components/DictionaryPanel";
 import { SearchBar } from "@/components/SearchBar";
 import { Dashboard } from "@/components/Dashboard";
@@ -236,12 +235,6 @@ function App() {
             decks={decks}
             defaultDeckId={deckIdParam ?? null}
             onAdd={handleAdd}
-          />
-
-          <BulkAddForm
-            decks={decks}
-            defaultDeckId={deckIdParam ?? null}
-            onImported={handleImported}
           />
 
           <ImportExport
