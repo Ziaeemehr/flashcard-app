@@ -1,5 +1,5 @@
-import { stringify } from "csv-stringify/sync";
-import { parse } from "csv-parse/sync";
+import { stringify } from "csv-stringify/browser/esm/sync";
+import { parse } from "csv-parse/browser/esm/sync";
 
 export type ExportFormat = "json" | "csv" | "anki";
 
