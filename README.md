@@ -43,21 +43,8 @@ organization, and Anki import/export.
 ### Prerequisites
 
 - Node.js (v18+)
-
-### Setup
-
-```bash
-# Install dependencies for both frontend and backend
-cd backend && npm install
-cd ../frontend && npm install
-```
-
-The backend uses SQLite via Prisma. On first run, apply migrations:
-
-```bash
-cd backend
-npx prisma migrate dev
-```
+- macOS or Linux. On Windows, run these commands via WSL or Git Bash (the
+  scripts are bash and won't run in cmd/PowerShell directly).
 
 ### Running
 
@@ -66,6 +53,10 @@ From the project root:
 ```bash
 ./run.sh
 ```
+
+The first run automatically installs dependencies for both frontend and
+backend, sets up the SQLite database (`npx prisma migrate dev`), and builds
+the standalone offline PWA (see below). Subsequent runs skip these steps.
 
 This starts the backend (Express, port 3001) and frontend (Vite, port 5173)
 concurrently. Press `Ctrl+C` or run `./stop.sh` to stop both.
@@ -79,29 +70,70 @@ a phone connected to the same Wi-Fi network.
 
 ### Standalone offline app (Android/iOS, no laptop required)
 
-For phone use without the laptop running, build the standalone PWA, which
-stores all data locally in the browser (IndexedDB) instead of calling the
-backend:
+`./run.sh` also builds a standalone PWA that stores all data locally in the
+phone's browser (IndexedDB) instead of calling the backend. After running
+`./run.sh`, it prints a second URL like `http://<your-ip>:3001/standalone` —
+open that on your phone (same Wi-Fi) to install it. After that one-time
+install, the app works fully offline — including review sessions and the
+SM-2 algorithm.
 
-```bash
-cd frontend
-npm run build:standalone
-```
+If you change the app's code later, run `cd frontend && npm run build:standalone`
+to refresh this bundle (see the cache note below).
 
-With the backend running (`./run.sh`), open `http://<your-ip>:3001/standalone`
-on your phone (same Wi-Fi), then "Add to Home Screen" (Chrome menu on Android,
-Share menu on iOS Safari). After that one-time install, the app works fully
-offline — including review sessions and the SM-2 algorithm.
+#### Install steps (Android)
+
+1. On your phone (Chrome, same Wi-Fi as your laptop), open
+   `http://<your-ip>:3001/standalone`.
+2. Tap the **⋮** menu → **Add to Home screen** (or "Install app").
+3. Launch it from the new home screen icon — it now works fully offline.
+
+#### Install steps (iPhone)
+
+1. On your phone (Safari, same Wi-Fi as your laptop), open
+   `http://<your-ip>:3001/standalone`.
+2. Tap the **Share** icon → **Add to Home Screen**.
+3. Launch it from the new home screen icon — it now works fully offline.
+
+> Note: on iOS versions older than 17, Safari may clear an installed web app's
+> local storage (including its IndexedDB database) if it isn't opened for
+> about 7 days. Back up regularly (see below) if you're on an older iOS.
+
+#### Getting your existing cards onto the phone
+
+The standalone app starts with an **empty, separate** database — it does not
+share data with the laptop app. To copy your cards over:
+
+1. On your laptop, open the regular app and go to **Import & Export →
+   Download backup** to save a JSON file.
+2. Send that file to your phone (AirDrop, email, cloud drive, etc.).
+3. On the phone, open the standalone app and use **Import & Export → Restore
+   from backup…**, then pick that file.
+
+#### Adding cards on the phone
+
+Once installed, use the standalone app exactly like the normal app — **Add
+card**, **Add multiple words…** (bulk add), or **Import file…** (CSV/JSON/Anki
+TSV) all work offline using the phone's local database.
+
+#### Syncing back to the laptop
+
+There's no automatic sync. Whenever you want to merge phone changes back:
+
+1. On the phone, **Import & Export → Download backup**.
+2. Transfer that file to your laptop and **Restore from backup…** in the
+   regular app (or vice versa, to push laptop changes to the phone).
 
 Notes:
 
-- The standalone app has its own separate data store. Use **Settings → Backup**
-  to export a JSON backup from one copy and **restore** it into the other to
-  sync data between your laptop and phone "every now and then".
 - Anki `.apkg` import isn't available in standalone mode (it requires the
   backend); use CSV/JSON/Anki-TSV import instead.
 - Dictionary lookups in standalone mode call Wiktionary/Tatoeba directly from
   the browser and may not work without an internet connection.
+- If you rebuild the standalone app (`npm run build:standalone`) after an
+  update, the phone's installed PWA may keep using a cached old version. If
+  something looks broken after an update, go to Chrome's site settings for
+  `<your-ip>` and "Clear & reset" (this clears the cache **and** the local
+  database, so restore your backup again afterward), then reload and reinstall.
 
 ## Project Structure
 
