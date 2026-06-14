@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FlashcardView } from "@/components/FlashcardView";
+import { EditCardForm } from "@/components/EditCardForm";
 import { DictionaryPanel } from "@/components/DictionaryPanel";
 import { flashcardsApi, lookupWord, type DictionaryEntry } from "@/api";
-import type { Flashcard, ReviewRating } from "@/types";
+import type { Deck, Flashcard, ReviewRating } from "@/types";
 
 interface ReviewModeProps {
   deckId?: string | null;
+  decks: Deck[];
   onReviewed?: () => void;
 }
 
-export function ReviewMode({ deckId, onReviewed }: ReviewModeProps) {
+export function ReviewMode({ deckId, decks, onReviewed }: ReviewModeProps) {
   const [queue, setQueue] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
   const [flipped, setFlipped] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [dictionaryEntry, setDictionaryEntry] = useState<DictionaryEntry | null>(null);
@@ -63,10 +66,21 @@ export function ReviewMode({ deckId, onReviewed }: ReviewModeProps) {
       const stillDue = new Date(updated.nextReviewDate) <= new Date();
       setQueue((prev) => (stillDue ? [...prev.slice(1), updated] : prev.slice(1)));
       setFlipped(false);
+      setEditing(false);
       onReviewed?.();
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCardSaved = (updated: Flashcard) => {
+    if (deckId !== undefined && updated.deckId !== deckId) {
+      setQueue((prev) => prev.filter((c) => c.id !== updated.id));
+    } else {
+      setQueue((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    }
+    setEditing(false);
+    onReviewed?.();
   };
 
   useEffect(() => {
@@ -125,7 +139,17 @@ export function ReviewMode({ deckId, onReviewed }: ReviewModeProps) {
         flipped={flipped}
         onFlip={() => setFlipped((f) => !f)}
         onWordClick={handleWordClick}
+        onEdit={() => setEditing((e) => !e)}
       />
+
+      {editing && (
+        <EditCardForm
+          card={card}
+          decks={decks}
+          onSaved={handleCardSaved}
+          onCancel={() => setEditing(false)}
+        />
+      )}
 
       {!flipped && (
         <Button variant="outline" onClick={() => setFlipped(true)}>

@@ -39,6 +39,8 @@ export const flashcardsApi = {
   list: (deckId?: string | null) => request<Flashcard[]>(`${API_URL}${deckQuery(deckId)}`),
   create: (card: NewFlashcard) =>
     request<Flashcard>(API_URL, { method: "POST", body: JSON.stringify(card) }),
+  update: (id: string, card: Partial<NewFlashcard>) =>
+    request<Flashcard>(`${API_URL}/${id}`, { method: "PUT", body: JSON.stringify(card) }),
   remove: (id: string) => request<void>(`${API_URL}/${id}`, { method: "DELETE" }),
   due: (deckId?: string | null) => request<Flashcard[]>(`${API_URL}/due${deckQuery(deckId)}`),
   stats: (deckId?: string | null) => request<ReviewStats>(`${API_URL}/stats${deckQuery(deckId)}`),

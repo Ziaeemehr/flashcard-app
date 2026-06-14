@@ -10,6 +10,7 @@ interface FlashcardViewProps {
   onFlip: () => void;
   onWordClick: (word: string) => void;
   onDelete?: () => void;
+  onEdit?: () => void;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -30,23 +31,37 @@ function typeColor(type: string): string {
   return TYPE_COLORS[type.toLowerCase()] ?? DEFAULT_TYPE_COLOR;
 }
 
-export function FlashcardView({ card, flipped, onFlip, onWordClick, onDelete }: FlashcardViewProps) {
+export function FlashcardView({ card, flipped, onFlip, onWordClick, onDelete, onEdit }: FlashcardViewProps) {
   return (
     <div className="relative [perspective:1200px] w-full max-w-xl h-80">
-      {onDelete && (
-        <Button
-          variant="destructive"
-          size="icon-sm"
-          className="absolute right-2 top-2 z-10"
-          title="Delete card"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (confirm(`Delete the flashcard for "${card.word}"?`)) onDelete();
-          }}
-        >
-          ✕
-        </Button>
-      )}
+      <div className="absolute right-2 top-2 z-10 flex gap-2">
+        {onEdit && (
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            title="Edit card"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
+            ✎
+          </Button>
+        )}
+        {onDelete && (
+          <Button
+            variant="destructive"
+            size="icon-sm"
+            title="Delete card"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm(`Delete the flashcard for "${card.word}"?`)) onDelete();
+            }}
+          >
+            ✕
+          </Button>
+        )}
+      </div>
       <div
         onClick={onFlip}
         className={cn(

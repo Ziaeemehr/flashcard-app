@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FlashcardView } from "@/components/FlashcardView";
 import { AddCardForm } from "@/components/AddCardForm";
+import { EditCardForm } from "@/components/EditCardForm";
 import { DictionaryPanel } from "@/components/DictionaryPanel";
 import { SearchBar } from "@/components/SearchBar";
 import { Dashboard } from "@/components/Dashboard";
@@ -33,6 +34,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
 
   const deckIdParam: string | null | undefined =
     selectedDeck === ALL_DECKS ? undefined : selectedDeck === UNASSIGNED_DECK ? null : selectedDeck;
@@ -93,6 +95,7 @@ function App() {
 
   const goTo = (newIndex: number) => {
     setFlipped(false);
+    setEditingCardId(null);
     setIndex(newIndex);
   };
 
@@ -164,6 +167,16 @@ function App() {
     setDictionaryAdded(true);
   };
 
+  const handleCardSaved = (updated: Flashcard) => {
+    if (deckIdParam !== undefined && updated.deckId !== deckIdParam) {
+      setCards((prev) => prev.filter((c) => c.id !== updated.id));
+    } else {
+      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    }
+    setEditingCardId(null);
+    setStatsVersion((v) => v + 1);
+  };
+
   const handleDelete = async (id: string) => {
     await flashcardsApi.remove(id);
     setCards((prev) => prev.filter((c) => c.id !== id));
@@ -224,7 +237,7 @@ function App() {
       />
 
       {mode === "review" && (
-        <ReviewMode deckId={deckIdParam} onReviewed={() => setStatsVersion((v) => v + 1)} />
+        <ReviewMode decks={decks} deckId={deckIdParam} onReviewed={() => setStatsVersion((v) => v + 1)} />
       )}
 
       {mode === "explore" && <SentenceExplorer defaultDeckId={deckIdParam ?? null} />}
@@ -274,7 +287,17 @@ function App() {
                 onFlip={() => setFlipped((f) => !f)}
                 onWordClick={handleWordClick}
                 onDelete={() => handleDelete(card.id)}
+                onEdit={() => setEditingCardId((id) => (id === card.id ? null : card.id))}
               />
+
+              {editingCardId === card.id && (
+                <EditCardForm
+                  card={card}
+                  decks={decks}
+                  onSaved={handleCardSaved}
+                  onCancel={() => setEditingCardId(null)}
+                />
+              )}
 
               <div className="flex items-center gap-3">
                 <Button variant="outline" onClick={handlePrev} disabled={filteredCards.length <= 1}>
