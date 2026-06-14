@@ -13,33 +13,59 @@ const flashcardInput = z.object({
   definition: z.string().optional().default(""),
   examples: z.array(z.string()).optional().default([]),
   audioUrl: z.string().optional().default(""),
+  deckId: z.string().nullable().optional(),
 });
 
 function toApi(card: { examples: string; [key: string]: unknown }) {
   return { ...card, examples: JSON.parse(card.examples) as string[] };
 }
 
-router.get("/", async (_req, res) => {
-  const cards = await prisma.flashcard.findMany({ orderBy: { createdAt: "desc" } });
+async function deckFilter(req: { query: Record<string, unknown> }): Promise<{ deckId?: string | null | { in: string[] } }> {
+  const deckId = req.query.deckId;
+  if (typeof deckId !== "string" || deckId === "") return {};
+  if (deckId === "unassigned") return { deckId: null };
+
+  const decks = await prisma.deck.findMany({ select: { id: true, parentId: true } });
+  const ids = new Set<string>([deckId]);
+  let added = true;
+  while (added) {
+    added = false;
+    for (const d of decks) {
+      if (d.parentId && ids.has(d.parentId) && !ids.has(d.id)) {
+        ids.add(d.id);
+        added = true;
+      }
+    }
+  }
+  return { deckId: { in: [...ids] } };
+}
+
+router.get("/", async (req, res) => {
+  const cards = await prisma.flashcard.findMany({
+    where: await deckFilter(req),
+    orderBy: { createdAt: "desc" },
+  });
   res.json(cards.map(toApi));
 });
 
-router.get("/due", async (_req, res) => {
+router.get("/due", async (req, res) => {
   const now = new Date();
   const cards = await prisma.flashcard.findMany({
-    where: { nextReviewDate: { lte: now } },
+    where: { ...(await deckFilter(req)), nextReviewDate: { lte: now } },
     orderBy: { nextReviewDate: "asc" },
   });
   res.json(cards.map(toApi));
 });
 
-router.get("/stats", async (_req, res) => {
+router.get("/stats", async (req, res) => {
   const now = new Date();
+  const where = await deckFilter(req);
   const [dueToday, newWords, learned, totals] = await Promise.all([
-    prisma.flashcard.count({ where: { nextReviewDate: { lte: now } } }),
-    prisma.flashcard.count({ where: { reviewCount: 0 } }),
-    prisma.flashcard.count({ where: { reviewCount: { gt: 0 } } }),
+    prisma.flashcard.count({ where: { ...where, nextReviewDate: { lte: now } } }),
+    prisma.flashcard.count({ where: { ...where, reviewCount: 0 } }),
+    prisma.flashcard.count({ where: { ...where, reviewCount: { gt: 0 } } }),
     prisma.flashcard.aggregate({
+      where,
       _sum: { reviewCount: true, lapses: true },
     }),
   ]);
@@ -54,7 +80,10 @@ router.get("/stats", async (_req, res) => {
 
 router.get("/export", async (req, res) => {
   const format = String(req.query.format ?? "json");
-  const cards = await prisma.flashcard.findMany({ orderBy: { createdAt: "desc" } });
+  const cards = await prisma.flashcard.findMany({
+    where: await deckFilter(req),
+    orderBy: { createdAt: "desc" },
+  });
   const exportable = cards.map((c) => ({
     word: c.word,
     phonetic: c.phonetic,
@@ -82,6 +111,7 @@ router.get("/export", async (req, res) => {
 const importInput = z.object({
   format: z.enum(["json", "csv", "anki"]),
   content: z.string().min(1),
+  deckId: z.string().nullable().optional(),
 });
 
 router.post("/import", async (req, res) => {
@@ -100,7 +130,11 @@ router.post("/import", async (req, res) => {
   }
 
   await prisma.flashcard.createMany({
-    data: cards.map((c) => ({ ...c, examples: JSON.stringify(c.examples) })),
+    data: cards.map((c) => ({
+      ...c,
+      examples: JSON.stringify(c.examples),
+      deckId: parsed.data.deckId ?? null,
+    })),
   });
 
   res.status(201).json({ imported: cards.length });

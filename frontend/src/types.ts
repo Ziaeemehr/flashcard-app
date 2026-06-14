@@ -1,3 +1,11 @@
+export interface Deck {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdAt: string;
+  cardCount: number;
+}
+
 export interface Flashcard {
   id: string;
   word: string;
@@ -6,6 +14,7 @@ export interface Flashcard {
   definition: string;
   examples: string[];
   audioUrl: string;
+  deckId: string | null;
   createdAt: string;
   easeFactor: number;
   interval: number;
@@ -19,7 +28,7 @@ export type NewFlashcard = Omit<
   "id" | "createdAt" | "easeFactor" | "interval" | "reviewCount" | "lapses" | "nextReviewDate"
 >;
 
-export type SortOption = "newest" | "alphabetical";
+export type SortOption = "newest" | "alphabetical" | "mostReviewed";
 
 export type ReviewRating = "again" | "hard" | "good" | "easy";
 

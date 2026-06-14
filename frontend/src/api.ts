@@ -1,16 +1,18 @@
-import type { Flashcard, NewFlashcard, ReviewRating, ReviewStats } from "./types";
+import type { Deck, Flashcard, NewFlashcard, ReviewRating, ReviewStats } from "./types";
 
 const API_URL = "/api/flashcards";
+const DECKS_URL = "/api/decks";
 
 export interface DictionaryEntry {
   word: string;
   type: string;
+  phonetic: string;
   definition: string;
   examples: string[];
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
@@ -27,38 +29,89 @@ const EXPORT_EXTENSIONS: Record<ImportExportFormat, string> = {
   anki: "txt",
 };
 
+function deckQuery(deckId?: string | null): string {
+  if (deckId === undefined) return "";
+  return `?deckId=${encodeURIComponent(deckId === null ? "unassigned" : deckId)}`;
+}
+
 export const flashcardsApi = {
-  list: () => request<Flashcard[]>(""),
+  list: (deckId?: string | null) => request<Flashcard[]>(`${API_URL}${deckQuery(deckId)}`),
   create: (card: NewFlashcard) =>
-    request<Flashcard>("", { method: "POST", body: JSON.stringify(card) }),
-  remove: (id: string) => request<void>(`/${id}`, { method: "DELETE" }),
-  due: () => request<Flashcard[]>("/due"),
-  stats: () => request<ReviewStats>("/stats"),
+    request<Flashcard>(API_URL, { method: "POST", body: JSON.stringify(card) }),
+  remove: (id: string) => request<void>(`${API_URL}/${id}`, { method: "DELETE" }),
+  due: (deckId?: string | null) => request<Flashcard[]>(`${API_URL}/due${deckQuery(deckId)}`),
+  stats: (deckId?: string | null) => request<ReviewStats>(`${API_URL}/stats${deckQuery(deckId)}`),
   review: (id: string, rating: ReviewRating) =>
-    request<Flashcard>(`/${id}/review`, { method: "POST", body: JSON.stringify({ rating }) }),
-  import: (format: ImportExportFormat, content: string) =>
-    request<{ imported: number }>("/import", {
+    request<Flashcard>(`${API_URL}/${id}/review`, { method: "POST", body: JSON.stringify({ rating }) }),
+  import: (format: ImportExportFormat, content: string, deckId?: string | null) =>
+    request<{ imported: number }>(`${API_URL}/import`, {
       method: "POST",
-      body: JSON.stringify({ format, content }),
+      body: JSON.stringify({ format, content, deckId }),
     }),
 };
 
-export async function exportFlashcards(format: ImportExportFormat): Promise<void> {
-  const res = await fetch(`${API_URL}/export?format=${format}`);
+export const decksApi = {
+  list: () => request<Deck[]>(DECKS_URL),
+  create: (name: string, parentId?: string | null) =>
+    request<Deck>(DECKS_URL, { method: "POST", body: JSON.stringify({ name, parentId }) }),
+  rename: (id: string, name: string) =>
+    request<Deck>(`${DECKS_URL}/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+  remove: (id: string) => request<void>(`${DECKS_URL}/${id}`, { method: "DELETE" }),
+};
+
+export async function exportFlashcards(format: ImportExportFormat, deckId?: string | null): Promise<void> {
+  const params = new URLSearchParams({ format });
+  if (deckId !== undefined) params.set("deckId", deckId === null ? "unassigned" : deckId);
+  const res = await fetch(`${API_URL}/export?${params}`);
   if (!res.ok) throw new Error(`Export failed: ${res.status}`);
   const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `flashcards.${EXPORT_EXTENSIONS[format]}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `flashcards.${EXPORT_EXTENSIONS[format]}`);
 }
 
 export async function lookupWord(word: string): Promise<DictionaryEntry | null> {
   const res = await fetch(`/api/dictionary/${encodeURIComponent(word)}`);
   if (!res.ok) return null;
   return res.json() as Promise<DictionaryEntry>;
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadBackup(): Promise<void> {
+  const res = await fetch("/api/backup");
+  if (!res.ok) throw new Error(`Backup failed: ${res.status}`);
+  const blob = await res.blob();
+  const date = new Date().toISOString().slice(0, 10);
+  downloadBlob(blob, `flashcards-backup-${date}.json`);
+}
+
+export async function restoreBackup(content: string): Promise<{ decks: number; flashcards: number }> {
+  const res = await fetch("/api/backup/restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: content,
+  });
+  if (!res.ok) throw new Error(`Restore failed: ${res.status}`);
+  return res.json() as Promise<{ decks: number; flashcards: number }>;
+}
+
+export async function importAnkiPackage(file: File): Promise<{ decks: { deck: string; imported: number }[]; totalImported: number }> {
+  const res = await fetch("/api/import-anki", {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: file,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `Import failed: ${res.status}`);
+  }
+  return res.json() as Promise<{ decks: { deck: string; imported: number }[]; totalImported: number }>;
 }

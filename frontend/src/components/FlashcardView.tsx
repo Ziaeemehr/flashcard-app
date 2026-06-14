@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { AudioControls } from "@/components/AudioControls";
 import { ClickableText } from "@/components/ClickableText";
 import type { Flashcard } from "@/types";
@@ -8,6 +9,7 @@ interface FlashcardViewProps {
   flipped: boolean;
   onFlip: () => void;
   onWordClick: (word: string) => void;
+  onDelete?: () => void;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -28,9 +30,23 @@ function typeColor(type: string): string {
   return TYPE_COLORS[type.toLowerCase()] ?? DEFAULT_TYPE_COLOR;
 }
 
-export function FlashcardView({ card, flipped, onFlip, onWordClick }: FlashcardViewProps) {
+export function FlashcardView({ card, flipped, onFlip, onWordClick, onDelete }: FlashcardViewProps) {
   return (
-    <div className="[perspective:1200px] w-full max-w-xl h-80">
+    <div className="relative [perspective:1200px] w-full max-w-xl h-80">
+      {onDelete && (
+        <Button
+          variant="destructive"
+          size="icon-sm"
+          className="absolute right-2 top-2 z-10"
+          title="Delete card"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Delete the flashcard for "${card.word}"?`)) onDelete();
+          }}
+        >
+          ✕
+        </Button>
+      )}
       <div
         onClick={onFlip}
         className={cn(

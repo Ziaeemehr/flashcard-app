@@ -4,7 +4,11 @@ import { DictionaryPanel } from "@/components/DictionaryPanel";
 import { AudioControls } from "@/components/AudioControls";
 import { flashcardsApi, lookupWord, type DictionaryEntry } from "@/api";
 
-export function SentenceExplorer() {
+interface SentenceExplorerProps {
+  defaultDeckId?: string | null;
+}
+
+export function SentenceExplorer({ defaultDeckId = null }: SentenceExplorerProps) {
   const [sentence, setSentence] = useState("");
 
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -26,11 +30,12 @@ export function SentenceExplorer() {
     if (!selectedWord || !dictionaryEntry) return;
     await flashcardsApi.create({
       word: selectedWord,
-      phonetic: "",
+      phonetic: dictionaryEntry.phonetic,
       type: dictionaryEntry.type,
       definition: dictionaryEntry.definition,
       examples: dictionaryEntry.examples,
       audioUrl: "",
+      deckId: defaultDeckId,
     });
     setDictionaryAdded(true);
   };

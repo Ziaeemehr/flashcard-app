@@ -1,20 +1,58 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { UNASSIGNED_DECK } from "@/components/DeckPanel";
 import { lookupWord } from "@/api";
-import type { NewFlashcard } from "@/types";
+import type { Deck, NewFlashcard } from "@/types";
 
 interface AddCardFormProps {
+  decks: Deck[];
+  defaultDeckId: string | null;
   onAdd: (card: NewFlashcard) => Promise<void>;
 }
 
-export function AddCardForm({ onAdd }: AddCardFormProps) {
+interface DeckOption {
+  id: string;
+  label: string;
+}
+
+function buildDeckOptions(decks: Deck[]): DeckOption[] {
+  const byParent = new Map<string | null, Deck[]>();
+  for (const deck of decks) {
+    const siblings = byParent.get(deck.parentId) ?? [];
+    siblings.push(deck);
+    byParent.set(deck.parentId, siblings);
+  }
+  const options: DeckOption[] = [];
+  const visit = (parentId: string | null, depth: number) => {
+    const siblings = (byParent.get(parentId) ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    for (const deck of siblings) {
+      options.push({ id: deck.id, label: `${"— ".repeat(depth)}${deck.name}` });
+      visit(deck.id, depth + 1);
+    }
+  };
+  visit(null, 0);
+  return options;
+}
+
+export function AddCardForm({ decks, defaultDeckId, onAdd }: AddCardFormProps) {
   const [word, setWord] = useState("");
   const [type, setType] = useState("");
+  const [phonetic, setPhonetic] = useState("");
   const [definition, setDefinition] = useState("");
   const [examples, setExamples] = useState<string[]>([]);
+  const [deckId, setDeckId] = useState<string>(defaultDeckId ?? UNASSIGNED_DECK);
   const [submitting, setSubmitting] = useState(false);
   const [looking, setLooking] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+
+  const deckOptions = buildDeckOptions(decks);
 
   const handleLookup = async () => {
     if (!word.trim()) return;
@@ -27,6 +65,7 @@ export function AddCardForm({ onAdd }: AddCardFormProps) {
         return;
       }
       setType(entry.type);
+      setPhonetic(entry.phonetic);
       setDefinition(entry.definition);
       setExamples(entry.examples);
     } finally {
@@ -42,13 +81,15 @@ export function AddCardForm({ onAdd }: AddCardFormProps) {
       await onAdd({
         word: word.trim(),
         definition: definition.trim(),
-        phonetic: "",
+        phonetic,
         type: type.trim(),
         examples,
         audioUrl: "",
+        deckId: deckId === UNASSIGNED_DECK ? null : deckId,
       });
       setWord("");
       setType("");
+      setPhonetic("");
       setDefinition("");
       setExamples([]);
       setLookupError(null);
@@ -81,12 +122,39 @@ export function AddCardForm({ onAdd }: AddCardFormProps) {
 
       {lookupError && <p className="text-sm text-destructive">{lookupError}</p>}
 
-      <input
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-        placeholder="Word type (e.g. verb, noun)"
-        className="rounded-md border bg-background px-3 py-2 text-sm"
-      />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          placeholder="Word type (e.g. verb, noun)"
+          className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+        />
+        <input
+          value={phonetic}
+          onChange={(e) => setPhonetic(e.target.value)}
+          placeholder="Phonetic (e.g. /a.bɔʁ.de/)"
+          className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+        />
+        <Select value={deckId} onValueChange={(v) => setDeckId(v ?? UNASSIGNED_DECK)}>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="Unassigned">
+              {(value: string) =>
+                value === UNASSIGNED_DECK
+                  ? "Unassigned"
+                  : deckOptions.find((d) => d.id === value)?.label ?? "Unassigned"
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNASSIGNED_DECK}>Unassigned</SelectItem>
+            {deckOptions.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <textarea
         value={definition}
         onChange={(e) => setDefinition(e.target.value)}

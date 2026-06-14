@@ -8,8 +8,9 @@ import { Dashboard } from "@/components/Dashboard";
 import { ReviewMode } from "@/components/ReviewMode";
 import { SentenceExplorer } from "@/components/SentenceExplorer";
 import { ImportExport } from "@/components/ImportExport";
-import { flashcardsApi, lookupWord, type DictionaryEntry } from "@/api";
-import type { Flashcard, NewFlashcard, SortOption } from "@/types";
+import { DeckPanel, ALL_DECKS, UNASSIGNED_DECK } from "@/components/DeckPanel";
+import { decksApi, flashcardsApi, lookupWord, type DictionaryEntry } from "@/api";
+import type { Deck, Flashcard, NewFlashcard, SortOption } from "@/types";
 
 type Mode = "browse" | "review" | "explore";
 
@@ -17,6 +18,8 @@ function App() {
   const [mode, setMode] = useState<Mode>("browse");
   const [statsVersion, setStatsVersion] = useState(0);
   const [cards, setCards] = useState<Flashcard[]>([]);
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const [selectedDeck, setSelectedDeck] = useState<string>(ALL_DECKS);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -31,13 +34,23 @@ function App() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
+  const deckIdParam: string | null | undefined =
+    selectedDeck === ALL_DECKS ? undefined : selectedDeck === UNASSIGNED_DECK ? null : selectedDeck;
+
+  const loadDecks = () => decksApi.list().then(setDecks);
+
   useEffect(() => {
+    loadDecks();
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
     flashcardsApi
-      .list()
+      .list(deckIdParam)
       .then(setCards)
       .catch(() => setError("Could not reach the backend API."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedDeck]);
 
   const availableTypes = useMemo(
     () => Array.from(new Set(cards.map((c) => c.type).filter(Boolean))).sort(),
@@ -55,6 +68,8 @@ function App() {
     });
     if (sortBy === "alphabetical") {
       result = [...result].sort((a, b) => a.word.localeCompare(b.word));
+    } else if (sortBy === "mostReviewed") {
+      result = [...result].sort((a, b) => b.reviewCount - a.reviewCount);
     } else {
       result = [...result].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -67,6 +82,12 @@ function App() {
     setIndex(0);
     setFlipped(false);
   }, [searchQuery, typeFilter, sortBy]);
+
+  useEffect(() => {
+    if (index >= filteredCards.length && filteredCards.length > 0) {
+      setIndex(filteredCards.length - 1);
+    }
+  }, [filteredCards.length, index]);
 
   const card = filteredCards[index];
 
@@ -84,6 +105,31 @@ function App() {
     goTo(next);
   };
 
+  useEffect(() => {
+    if (mode !== "browse" || !card) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+
+      switch (e.key) {
+        case " ":
+          e.preventDefault();
+          setFlipped((f) => !f);
+          break;
+        case "ArrowRight":
+          handleNext();
+          break;
+        case "ArrowLeft":
+          handlePrev();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mode, card, handleNext, handlePrev]);
+
   const handleWordClick = (word: string) => {
     setSelectedWord(word);
     setDictionaryEntry(null);
@@ -96,37 +142,65 @@ function App() {
 
   const handleAdd = async (newCard: NewFlashcard) => {
     const created = await flashcardsApi.create(newCard);
-    setCards((prev) => [created, ...prev]);
-    setIndex(0);
-    setFlipped(false);
+    if (deckIdParam === undefined || created.deckId === deckIdParam) {
+      setCards((prev) => [created, ...prev]);
+      setIndex(0);
+      setFlipped(false);
+    }
+    setStatsVersion((v) => v + 1);
   };
 
   const handleAddFromDictionary = async () => {
     if (!selectedWord || !dictionaryEntry) return;
     await handleAdd({
       word: selectedWord,
-      phonetic: "",
+      phonetic: dictionaryEntry.phonetic,
       type: dictionaryEntry.type,
       definition: dictionaryEntry.definition,
       examples: dictionaryEntry.examples,
       audioUrl: "",
+      deckId: deckIdParam ?? null,
     });
     setDictionaryAdded(true);
   };
 
+  const handleDelete = async (id: string) => {
+    await flashcardsApi.remove(id);
+    setCards((prev) => prev.filter((c) => c.id !== id));
+    setFlipped(false);
+    setStatsVersion((v) => v + 1);
+  };
+
   const handleImported = async () => {
-    const updated = await flashcardsApi.list();
+    const updated = await flashcardsApi.list(deckIdParam);
     setCards(updated);
     setIndex(0);
     setFlipped(false);
     setStatsVersion((v) => v + 1);
+    loadDecks();
+  };
+
+  const handleCreateDeck = async (name: string, parentId: string | null) => {
+    await decksApi.create(name, parentId);
+    await loadDecks();
+  };
+
+  const handleRenameDeck = async (id: string, name: string) => {
+    await decksApi.rename(id, name);
+    await loadDecks();
+  };
+
+  const handleDeleteDeck = async (id: string) => {
+    await decksApi.remove(id);
+    if (selectedDeck === id) setSelectedDeck(ALL_DECKS);
+    await loadDecks();
   };
 
   return (
     <div className="mx-auto flex min-h-svh max-w-3xl flex-col items-center gap-6 p-6">
       <h1 className="text-3xl font-semibold">French Vocabulary Flashcards</h1>
 
-      <Dashboard refreshKey={statsVersion} />
+      <Dashboard refreshKey={statsVersion} deckId={deckIdParam} />
 
       <div className="flex items-center gap-2">
         <Button variant={mode === "browse" ? "default" : "outline"} onClick={() => setMode("browse")}>
@@ -140,15 +214,34 @@ function App() {
         </Button>
       </div>
 
-      {mode === "review" && <ReviewMode onReviewed={() => setStatsVersion((v) => v + 1)} />}
+      <DeckPanel
+        decks={decks}
+        selected={selectedDeck}
+        onSelect={setSelectedDeck}
+        onCreate={handleCreateDeck}
+        onRename={handleRenameDeck}
+        onDelete={handleDeleteDeck}
+      />
 
-      {mode === "explore" && <SentenceExplorer />}
+      {mode === "review" && (
+        <ReviewMode deckId={deckIdParam} onReviewed={() => setStatsVersion((v) => v + 1)} />
+      )}
+
+      {mode === "explore" && <SentenceExplorer defaultDeckId={deckIdParam ?? null} />}
 
       {mode === "browse" && (
         <>
-          <AddCardForm onAdd={handleAdd} />
+          <AddCardForm
+            decks={decks}
+            defaultDeckId={deckIdParam ?? null}
+            onAdd={handleAdd}
+          />
 
-          <ImportExport onImported={handleImported} />
+          <ImportExport
+            decks={decks}
+            currentDeckId={deckIdParam ?? null}
+            onImported={handleImported}
+          />
 
           {loading && <p className="text-muted-foreground">Loading flashcards…</p>}
           {error && <p className="text-destructive">{error}</p>}
@@ -180,6 +273,7 @@ function App() {
                 flipped={flipped}
                 onFlip={() => setFlipped((f) => !f)}
                 onWordClick={handleWordClick}
+                onDelete={() => handleDelete(card.id)}
               />
 
               <div className="flex items-center gap-3">

@@ -52,12 +52,19 @@ export function SearchBar({
       <Select value={sortBy} onValueChange={(v) => onSortByChange(v as SortOption)}>
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Sort">
-            {(value: SortOption) => (value === "alphabetical" ? "Alphabetical" : "Newest")}
+            {(value: SortOption) =>
+              value === "alphabetical"
+                ? "Alphabetical"
+                : value === "mostReviewed"
+                  ? "Most reviewed"
+                  : "Newest"
+            }
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="newest">Newest</SelectItem>
           <SelectItem value="alphabetical">Alphabetical</SelectItem>
+          <SelectItem value="mostReviewed">Most reviewed</SelectItem>
         </SelectContent>
       </Select>
     </div>

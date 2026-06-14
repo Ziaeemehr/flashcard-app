@@ -24,6 +24,18 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+async function fetchPhonetic(word: string): Promise<string> {
+  try {
+    const res = await fetch(`https://en.wiktionary.org/api/rest_v1/page/html/${encodeURIComponent(word)}`);
+    if (!res.ok) return "";
+    const html = await res.text();
+    const match = html.match(/<span class="IPA[^"]*">([^<]+)<\/span>/);
+    return match ? match[1] : "";
+  } catch {
+    return "";
+  }
+}
+
 router.get("/:word", async (req, res) => {
   const word = req.params.word;
 
@@ -32,6 +44,7 @@ router.get("/:word", async (req, res) => {
     return res.json({
       word: cached.word,
       type: cached.type,
+      phonetic: cached.phonetic,
       definition: cached.definition,
       examples: JSON.parse(cached.examples) as string[],
     });
@@ -72,6 +85,7 @@ router.get("/:word", async (req, res) => {
   const entry = {
     word,
     type: frenchSenses[0].partOfSpeech.toLowerCase(),
+    phonetic: await fetchPhonetic(word),
     definition: definitions.slice(0, 3).join(" "),
     examples: examples.slice(0, 3),
   };

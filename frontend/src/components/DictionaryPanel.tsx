@@ -40,6 +40,9 @@ export function DictionaryPanel({
           {entry?.type && (
             <span className="text-sm text-muted-foreground italic">{entry.type}</span>
           )}
+          {entry?.phonetic && (
+            <span className="text-sm text-amber-600 dark:text-amber-400">{entry.phonetic}</span>
+          )}
           <AudioControls text={word} />
         </div>
         <div className="flex items-center gap-1">

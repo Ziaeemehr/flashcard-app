@@ -4,14 +4,15 @@ import type { ReviewStats } from "@/types";
 
 interface DashboardProps {
   refreshKey?: unknown;
+  deckId?: string | null;
 }
 
-export function Dashboard({ refreshKey }: DashboardProps) {
+export function Dashboard({ refreshKey, deckId }: DashboardProps) {
   const [stats, setStats] = useState<ReviewStats | null>(null);
 
   useEffect(() => {
-    flashcardsApi.stats().then(setStats);
-  }, [refreshKey]);
+    flashcardsApi.stats(deckId).then(setStats);
+  }, [refreshKey, deckId]);
 
   if (!stats) {
     return <p className="text-muted-foreground">Loading stats…</p>;

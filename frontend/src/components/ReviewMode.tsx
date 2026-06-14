@@ -6,10 +6,11 @@ import { flashcardsApi, lookupWord, type DictionaryEntry } from "@/api";
 import type { Flashcard, ReviewRating } from "@/types";
 
 interface ReviewModeProps {
+  deckId?: string | null;
   onReviewed?: () => void;
 }
 
-export function ReviewMode({ onReviewed }: ReviewModeProps) {
+export function ReviewMode({ deckId, onReviewed }: ReviewModeProps) {
   const [queue, setQueue] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
   const [flipped, setFlipped] = useState(false);
@@ -21,11 +22,12 @@ export function ReviewMode({ onReviewed }: ReviewModeProps) {
   const [dictionaryAdded, setDictionaryAdded] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     flashcardsApi
-      .due()
+      .due(deckId)
       .then(setQueue)
       .finally(() => setLoading(false));
-  }, []);
+  }, [deckId]);
 
   const card = queue[0];
 
@@ -43,11 +45,12 @@ export function ReviewMode({ onReviewed }: ReviewModeProps) {
     if (!selectedWord || !dictionaryEntry) return;
     await flashcardsApi.create({
       word: selectedWord,
-      phonetic: "",
+      phonetic: dictionaryEntry.phonetic,
       type: dictionaryEntry.type,
       definition: dictionaryEntry.definition,
       examples: dictionaryEntry.examples,
       audioUrl: "",
+      deckId: deckId ?? null,
     });
     setDictionaryAdded(true);
   };
@@ -65,6 +68,40 @@ export function ReviewMode({ onReviewed }: ReviewModeProps) {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!card) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+
+      if (e.key === " ") {
+        e.preventDefault();
+        setFlipped((f) => !f);
+        return;
+      }
+
+      if (!flipped || submitting) return;
+      switch (e.key.toLowerCase()) {
+        case "a":
+          handleRate("again");
+          break;
+        case "h":
+          handleRate("hard");
+          break;
+        case "g":
+          handleRate("good");
+          break;
+        case "e":
+          handleRate("easy");
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   if (loading) {
     return <p className="text-muted-foreground">Loading review queue…</p>;

@@ -15,9 +15,23 @@ datasource db {
 model DictionaryEntry {
   word       String   @id
   type       String   @default("")
+  phonetic   String   @default("")
   definition String   @default("")
   examples   String   @default("[]") // JSON-encoded string[]
   fetchedAt  DateTime @default(now())
+}
+
+model Deck {
+  id        String      @id @default(uuid())
+  name      String
+  createdAt DateTime    @default(now())
+  cards     Flashcard[]
+
+  parentId  String?
+  parent    Deck?       @relation("DeckHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Deck[]      @relation("DeckHierarchy")
+
+  @@unique([name, parentId])
 }
 
 model Flashcard {
@@ -29,6 +43,9 @@ model Flashcard {
   examples       String   @default("[]") // JSON-encoded string[]
   audioUrl       String   @default("")
   createdAt      DateTime @default(now())
+
+  deckId         String?
+  deck           Deck?    @relation(fields: [deckId], references: [id], onDelete: SetNull)
 
   // Spaced repetition (SM-2)
   easeFactor     Float    @default(2.5)
