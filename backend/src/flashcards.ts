@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "./db";
 import { applyReview, type ReviewRating } from "./sm2";
 import { toCsv, toAnkiTsv, parseImport } from "./importExport";
-import { lookupDictionary } from "./dictionary";
+import { lookupDictionary, fetchExampleSentences } from "./dictionary";
 
 const router = Router();
 
@@ -172,13 +172,14 @@ router.post("/bulk-import", async (req, res) => {
     if (!word) continue;
 
     const entry = await lookupDictionary(word);
+    const examples = entry?.examples.length ? entry.examples : await fetchExampleSentences(word);
     await prisma.flashcard.create({
       data: {
         word,
         definition: entry?.definition ?? "",
         phonetic: entry?.phonetic ?? "",
         type: entry?.type ?? "",
-        examples: JSON.stringify(entry?.examples ?? []),
+        examples: JSON.stringify(examples),
         audioUrl: "",
         deckId: parsed.data.deckId ?? null,
       },

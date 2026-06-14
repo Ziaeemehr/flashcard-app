@@ -36,6 +36,38 @@ async function fetchPhonetic(word: string): Promise<string> {
   }
 }
 
+interface TatoebaTranslation {
+  lang: string;
+  text: string;
+}
+
+interface TatoebaResult {
+  text: string;
+  translations?: TatoebaTranslation[][];
+}
+
+// Wiktionary rarely includes example sentences for French entries, so we pull
+// real-world usage examples (with English translations) from Tatoeba instead.
+export async function fetchExampleSentences(word: string, limit = 2): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://tatoeba.org/en/api_v0/search?from=fra&to=eng&query=${encodeURIComponent(word)}&trans_to=eng`,
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { results?: TatoebaResult[] };
+
+    const sentences: string[] = [];
+    for (const result of data.results ?? []) {
+      const translation = result.translations?.flat().find((t) => t.lang === "eng")?.text;
+      sentences.push(translation ? `${result.text} (${translation})` : result.text);
+      if (sentences.length >= limit) break;
+    }
+    return sentences;
+  } catch {
+    return [];
+  }
+}
+
 export interface DictionaryEntry {
   word: string;
   type: string;
@@ -47,12 +79,22 @@ export interface DictionaryEntry {
 export async function lookupDictionary(word: string): Promise<DictionaryEntry | null> {
   const cached = await prisma.dictionaryEntry.findUnique({ where: { word } });
   if (cached) {
+    let examples = JSON.parse(cached.examples) as string[];
+    if (examples.length === 0) {
+      examples = await fetchExampleSentences(word);
+      if (examples.length > 0) {
+        await prisma.dictionaryEntry.update({
+          where: { word },
+          data: { examples: JSON.stringify(examples) },
+        });
+      }
+    }
     return {
       word: cached.word,
       type: cached.type,
       phonetic: cached.phonetic,
       definition: cached.definition,
-      examples: JSON.parse(cached.examples) as string[],
+      examples,
     };
   }
 
@@ -84,12 +126,14 @@ export async function lookupDictionary(word: string): Promise<DictionaryEntry | 
     }
   }
 
+  const trimmedExamples = examples.slice(0, 2);
+
   const entry: DictionaryEntry = {
     word,
     type: frenchSenses[0].partOfSpeech.toLowerCase(),
     phonetic: await fetchPhonetic(word),
     definition: definitions.slice(0, 3).join(" "),
-    examples: examples.slice(0, 3),
+    examples: trimmedExamples.length > 0 ? trimmedExamples : await fetchExampleSentences(word),
   };
 
   await prisma.dictionaryEntry.create({

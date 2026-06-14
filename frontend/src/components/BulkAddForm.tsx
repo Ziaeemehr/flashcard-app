@@ -28,6 +28,14 @@ export function BulkAddForm({ decks, defaultDeckId, onImported }: BulkAddFormPro
 
   const deckOptions = buildDeckOptions(decks);
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const content = await file.text();
+    setText(content);
+    e.target.value = "";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const words = text.split("\n").map((line) => line.trim()).filter(Boolean);
@@ -73,6 +81,12 @@ export function BulkAddForm({ decks, defaultDeckId, onImported }: BulkAddFormPro
       <p className="text-xs text-muted-foreground">
         One word or phrase per line. Definitions, type, phonetics, and examples are looked up automatically.
       </p>
+      <div className="flex items-center gap-2">
+        <label className="cursor-pointer text-xs text-muted-foreground underline">
+          Upload .txt file
+          <input type="file" accept=".txt,text/plain" onChange={handleFileChange} className="hidden" />
+        </label>
+      </div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
