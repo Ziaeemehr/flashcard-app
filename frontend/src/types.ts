@@ -38,3 +38,8 @@ export interface ReviewStats {
   learned: number;
   retentionRate: number | null;
 }
+
+export interface Settings {
+  id: string;
+  newCardsPerDay: number;
+}

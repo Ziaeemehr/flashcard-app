@@ -1,7 +1,8 @@
-import type { Deck, Flashcard, NewFlashcard, ReviewRating, ReviewStats } from "./types";
+import type { Deck, Flashcard, NewFlashcard, ReviewRating, ReviewStats, Settings } from "./types";
 
 const API_URL = "/api/flashcards";
 const DECKS_URL = "/api/decks";
+const SETTINGS_URL = "/api/settings";
 
 export interface DictionaryEntry {
   word: string;
@@ -53,6 +54,12 @@ export const flashcardsApi = {
       method: "POST",
       body: JSON.stringify({ words, deckId }),
     }),
+};
+
+export const settingsApi = {
+  get: () => request<Settings>(SETTINGS_URL),
+  update: (newCardsPerDay: number) =>
+    request<Settings>(SETTINGS_URL, { method: "PUT", body: JSON.stringify({ newCardsPerDay }) }),
 };
 
 export const decksApi = {

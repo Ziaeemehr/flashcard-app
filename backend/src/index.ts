@@ -6,6 +6,7 @@ import tts from "./tts";
 import decks from "./decks";
 import backup from "./backup";
 import ankiImport from "./ankiImport";
+import settings from "./settings";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -19,6 +20,7 @@ app.use("/api/tts", tts);
 app.use("/api/decks", decks);
 app.use("/api/backup", backup);
 app.use("/api/import-anki", ankiImport);
+app.use("/api/settings", settings);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 

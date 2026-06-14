@@ -4,6 +4,7 @@ import { prisma } from "./db";
 import { applyReview, type ReviewRating } from "./sm2";
 import { toCsv, toAnkiTsv, parseImport } from "./importExport";
 import { lookupDictionary, fetchExampleSentences } from "./dictionary";
+import { getSettings } from "./settings";
 
 const router = Router();
 
@@ -61,18 +62,28 @@ router.get("/", async (req, res) => {
 
 router.get("/due", async (req, res) => {
   const now = new Date();
-  const cards = await prisma.flashcard.findMany({
-    where: { ...(await deckFilter(req)), nextReviewDate: { lte: now } },
+  const where = await deckFilter(req);
+  const settings = await getSettings();
+
+  const dueReview = await prisma.flashcard.findMany({
+    where: { ...where, reviewCount: { gt: 0 }, nextReviewDate: { lte: now } },
     orderBy: { nextReviewDate: "asc" },
   });
-  res.json(cards.map(toApi));
+  const newCards = await prisma.flashcard.findMany({
+    where: { ...where, reviewCount: 0 },
+    orderBy: { createdAt: "asc" },
+    take: settings.newCardsPerDay,
+  });
+
+  res.json([...dueReview, ...newCards].map(toApi));
 });
 
 router.get("/stats", async (req, res) => {
   const now = new Date();
   const where = await deckFilter(req);
-  const [dueToday, newWords, learned, totals] = await Promise.all([
-    prisma.flashcard.count({ where: { ...where, nextReviewDate: { lte: now } } }),
+  const settings = await getSettings();
+  const [dueReviewCount, newWords, learned, totals] = await Promise.all([
+    prisma.flashcard.count({ where: { ...where, reviewCount: { gt: 0 }, nextReviewDate: { lte: now } } }),
     prisma.flashcard.count({ where: { ...where, reviewCount: 0 } }),
     prisma.flashcard.count({ where: { ...where, reviewCount: { gt: 0 } } }),
     prisma.flashcard.aggregate({
@@ -85,6 +96,8 @@ router.get("/stats", async (req, res) => {
   const totalLapses = totals._sum.lapses ?? 0;
   const retentionRate =
     totalReviews > 0 ? ((totalReviews - totalLapses) / totalReviews) * 100 : null;
+
+  const dueToday = dueReviewCount + Math.min(settings.newCardsPerDay, newWords);
 
   res.json({ dueToday, newWords, learned, retentionRate });
 });
